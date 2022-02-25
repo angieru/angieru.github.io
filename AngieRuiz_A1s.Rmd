@@ -64,7 +64,6 @@ for(year in years) {
         }
   }}
   
-  
   pge_elec <- rbind(pge_elec,temp)
   # Note rbind requires field names to be consistent for every new thing that you add.
 
