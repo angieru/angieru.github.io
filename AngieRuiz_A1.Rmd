@@ -230,7 +230,9 @@ pge_final_commercial <-
 '''
 #Combining (stacking) the electric and gas data
 
-pge_final <- rbind(pge_summarize_elec, pge_summarize_gas)
+pge_final <- NULL
+
+pge_final <- rbind(pge_summarize_elec , pge_summarize_gas)
 
 pge_final_commercial <-
   filter(
@@ -314,7 +316,87 @@ pge_final_commercial %>%
 
 pge_chart_commercial
 
+
+
+#Analyze COVID19 Impact on Energy Usage (2019-2020)
+#Filter by year
+
+pge_commericial_covid <-
+filter(
+    pge_final_commercial,
+    YEAR %in% 
+      c(
+        "2019, 2020"
+  )
+  )%>% 
+
+pge_residential_covid <-
+filter(
+    pge_final_residential,
+    YEAR %in% 
+      c(
+        "2019, 2020"
+  )
+  )%>% 
+
+#Make Chart to demonstrate COVID19 Impact on Energy Usage on a Plot
+
+pge_comm_cov_chart <-
+  pge_commercial_covid %>% 
+  ggplot() +
+    geom_bar(
+      aes(
+      x = DATE %>% factor(),
+      y = TOTALBTU,
+      fill = CUSTOMERCLASS,
+      
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  
+  labs(
+    x = "Date",
+    y = "kBTU",
+    title = "PG&E Territory Monthly Commercial Electrcity and Gas Usage in 2019-2020",
+    fill = "Energy Type"
+  ) 
+
+pge_comm_cov_chart
+
+pge_res_cov_chart <-
+  pge_residential_covid %>% 
+  ggplot() +
+    geom_bar(
+      aes(
+      x = DATE %>% factor(),
+      y = TOTALBTU,
+      fill = CUSTOMERCLASS,
+      
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  
+  labs(
+    x = "Date",
+    y = "kBTU",
+    title = "PG&E Territory Monthly Residential Electrcity and Gas Usage in 2019-2020",
+    fill = "Energy Type"
+  ) 
+
+pge_res_cov_chart
+  
 ```
+
+
+#Assumptions: Although we know this is not the correct timeline, with the way I input the data it analyzes energy usage from all of 2019 to all of 2020 even though rates of contamination and whether or not people were working from home varied greatly during this time.
+
+
+#I keep getting the error Error in ggplot(.) : object '____' not found for my final variables and my chart variables and cannot see a plot. Therefore, I am frustratingly unable to analyze the electricity and gas usage data. 
+
+
+#However, if I were to try and answer the questions and analyze commercial and residential energy usage from 2019-2020 I would hypothesize that We would see an increase in residential gas and electricity usage since many people transitioned to work from home and therefore were in their houses for an additional 8 hours a day cooking, heating/using AC, charging their devices, etc.for these additional hours per day whereas prior to 2019 they wouldn't do these things while they were at their office. I would anticipate that commerical energy usage would be roughly similar because although many people were no longer working from the office, in my biased and personal perspective, many employers still kept the buildings running. Inclusively, some were semi- work from home where the building was still being used my employees a few days a week. I wish I could confirm or deny these observations but I cannot figure out where my ggplot is going wrong.
 
 You should now write some similar code to visualize commercial energy.
 
