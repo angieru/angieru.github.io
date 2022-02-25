@@ -61,8 +61,8 @@ for(year in years) {
           temp %>%
           mutate(TOTALKBTU = TOTALKWH * 3412.14) %>%
           select(-TOTALKWH, -AVERAGEKWH)
-        } 
-  }
+        }
+  }}
   
   
   pge_elec <- rbind(pge_elec,temp)
@@ -75,7 +75,7 @@ for(year in years) {
 for(year in years) {
   for(quarter in quarters) {
       
-      filename1 <- 
+      filename2 <- 
         paste0(
       "PGE_",
       year,
@@ -184,50 +184,7 @@ pge_group_elec <-
       as.Date(paste0(YEAR, "-", MONTH,"-", "01"))
   ) %>% 
   
-  
-''' 
-#Already mutated earlier
-pge_mutate <-
-  mutate(
-    DATE = 
-      paste(
-        ___,
-        ___, 
-        "01",
-        sep="-"
-      ) %>% as.Date()
-  )
 
-pge_final_commercial <-
-  pge_final %>% 
-  filter(
-    CUSTOMERCLASS %in% 
-      c(
-        "Gas- Commercial",
-        "Elec- Commercial"
-      )
-  ) %>% 
-  select(
-    -c(COMBINED, AVERAGEKWH)
-  ) %>% 
-  group_by(MONTH, CUSTOMERCLASS) %>% 
-  summarize(
-    TOTALBTU = 
-      sum(
-        TOTALBTU, 
-        na.rm = T
-      ),
-    TOTALCUSTOMERS =
-      sum(
-        TOTALCUSTOMERS,
-        na.rm = T
-      )
-  ) %>% 
-  mutate(
-    AVERAGEBTU =
-      TOTALBTU/TOTALCUSTOMERS
-  )
-'''
 #Combining (stacking) the electric and gas data
 
 pge_final <- NULL
@@ -264,7 +221,6 @@ Next, write a `ggplot()` pipeline for the residential time series.
 
 ```{r}
 
-library(data.table)
 library(scales)
 library(plotly)
 library(ggplot)
@@ -274,7 +230,7 @@ pge_final_residential %>%
   ggplot() +
     geom_bar(
       aes(
-      x = DATE %>% factor(),
+      x = DATE,
       y = TOTALBTU,
       fill = CUSTOMERCLASS,
       
@@ -298,7 +254,7 @@ pge_final_commercial %>%
   ggplot() +
     geom_bar(
       aes(
-      x = DATE %>% factor(),
+      x = DATE,
       y = TOTALBTU,
       fill = CUSTOMERCLASS,
       
@@ -346,7 +302,7 @@ pge_comm_cov_chart <-
   ggplot() +
     geom_bar(
       aes(
-      x = DATE %>% factor(),
+      x = DATE,
       y = TOTALBTU,
       fill = CUSTOMERCLASS,
       
@@ -358,18 +314,19 @@ pge_comm_cov_chart <-
   labs(
     x = "Date",
     y = "kBTU",
-    title = "PG&E Territory Monthly Commercial Electrcity and Gas Usage in 2019-2020",
+    title = "PG&E Territory Monthly Commercial Electricity and Gas Usage in 2019-2020",
     fill = "Energy Type"
   ) 
 
 pge_comm_cov_chart
+
 
 pge_res_cov_chart <-
   pge_residential_covid %>% 
   ggplot() +
     geom_bar(
       aes(
-      x = DATE %>% factor(),
+      x = DATE,
       y = TOTALBTU,
       fill = CUSTOMERCLASS,
       
@@ -381,7 +338,7 @@ pge_res_cov_chart <-
   labs(
     x = "Date",
     y = "kBTU",
-    title = "PG&E Territory Monthly Residential Electrcity and Gas Usage in 2019-2020",
+    title = "PG&E Territory Monthly Residential Electricity and Gas Usage in 2019-2020",
     fill = "Energy Type"
   ) 
 
@@ -407,4 +364,3 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
