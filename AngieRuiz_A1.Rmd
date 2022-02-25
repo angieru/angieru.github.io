@@ -1,0 +1,328 @@
+---
+title: "AngieRuiz_A1"
+author: "Angie Ruiz"
+date: "02/19/21"
+output: html_document
+editor_options: 
+chunk_output_type: console
+---
+
+
+```{r}
+knitr::opts_chunk$set(warning = F, message = F)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(tigris)
+library(leaflet)
+library(censusapi)
+
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+```
+
+
+First, you'll need to download all the individual zip files yourself and unzip the CSVs inside them into your working directory (in my case they're in a folder called pge). From there, you should adapt the loop code from 1.6 to be applied to more files. One way to approach this is using three nested for loops. This loop structure essentially helps you construct the different file names. Otherwise, there are two other special issues to address before the code will run smoothly:
+
+- The year 2021 doesn't have all 4 quarters of data, so when your for loop hits 2021 Q3, it will try to read a file that doesn't exist and cause an error, which causes you to lose your whole process. You want to be able to skip files that don't exist. The `next` operation moves on to the next iteration of the loop, and would be useful here.
+- The electricity and gas CSVs are similar except for the units of the energy, which means different field names. Electricity has `TOTALKWH` and `AVERAGEKWH`, and Gas has `TOTALTHM` and `AVERAGETHM`. You need to use mutate to convert these values to `TOTALKBTU` (Average KBTU isn't necessary for this assignment) and remove the original fields before rbinding the dataframes together. Since you will know whether you're dealing with an Electricity or Gas dataset using the `type` variable, you can use this within if statements, or do the equivalent inside of a pipeline.
+
+
+```{r}
+
+years <- 2017:2021
+quarters <- 1:4
+type1e <- "Electric"
+type2g <- "Gas"
+
+pge_elec <- NULL
+pge_gas <- NULL
+
+#Set Up for Electric Data
+for(year in years) {
+  for(quarter in quarters) {
+      
+      filename1 <- 
+        paste0(
+      "PGE_",
+      year,
+      "_Q",
+      quarter,
+      "_",
+      type1e,
+      "UsageByZip.csv"
+        )
+      
+  if (!file.exists(filename1))next
+      
+  temp <- read_csv(filename1)
+  
+        if(type1e == "Electric") {
+        temp <-
+          temp %>%
+          mutate(TOTALKBTU = TOTALKWH * 3412.14) %>%
+          select(-TOTALKWH, -AVERAGEKWH)
+        } 
+  }
+  
+  
+  pge_elec <- rbind(pge_elec,temp)
+  # Note rbind requires field names to be consistent for every new thing that you add.
+
+  saveRDS(pge_elec, "pge_elec.rds")
+  
+  
+  #Set Up for Gas Data
+for(year in years) {
+  for(quarter in quarters) {
+      
+      filename1 <- 
+        paste0(
+      "PGE_",
+      year,
+      "_Q",
+      quarter,
+      "_",
+      type2g,
+      "UsageByZip.csv"
+        )
+      
+  if (!file.exists(filename2))next
+      
+  temp <- read_csv(filename2)
+  
+        if(type2g == "Gas") {
+        temp <-
+          temp %>%
+          mutate(TOTALKBTU = TOTALTHM * 100000.39) %>%
+          select(-TOTALTHM, -AVERAGETHM)
+        }
+  
+  pge_gas <- rbind(pge_gas,temp)
+  # Note rbind requires field names to be consistent for every new thing that you add.
+
+  saveRDS(pge_gas, "pge_gas.rds")
+
+
+  }
+}
+```
+
+There is one genuine problem with the data that needs to be solved, but it is hard to notice at this stage, and hard to notice at all until you make your first plots. You won't be penalized for not correcting it, but be on the lookout for something odd in the data, and if you find it, think about how to address it in your for loop.
+
+Next, you should explore the dataframe to notice that you only need 4 customer classes. Then, using the techniques from Chapter 1.7, you can manipulate the dataframe to give you total KBTU per month. To enable the dataframe to plot with time on the X-axis, it helps to create a `DATE` field that is an alphanumerically increasing string, or is a full Date object (as I'm guiding below). 
+
+```{r}
+#Filtering by customer class
+
+pge_filter_elec <- 
+  filter(
+    pge_elec,
+    CUSTOMERCLASS %in% 
+      c(
+        "Elec- Residential",
+        "Elec- Commercial"
+  )
+  )%>% 
+  
+  pge_filter_gas <- 
+  filter(
+    pge_gas,
+    CUSTOMERCLASS %in% 
+      c(
+        "Gas- Residential",
+        "Gas- Commercial"
+  )
+  )%>% 
+
+#Getting rid of the data columns we don't need
+  pge_select_elec <-
+  select(
+    pge_filter_elec,
+    -c(COMBINED, AVERAGEKWH)
+  )%>% 
+
+pge_select_gas <-
+  select(
+    pge_filter_gas,
+    -c(COMBINED, AVERAGETHM)
+  )%>% 
+
+#Setting the categories I want to keep as discrete categories, this will give me
+#the data for the whole PGE region for each month and year.
+pge_group_elec <-
+  group_by(
+    pge_select_elec,
+    MONTH,
+    YEAR,
+    CUSTOMERCLASS
+  ) %>% 
+
+  pge_group_gas <-
+  group_by(
+    pge_select_gas,
+    MONTH,
+    YEAR,
+    CUSTOMERCLASS
+  ) %>% 
+
+#Creating new fields based on the data I choose to keep and manipulate with functions
+  pge_summarize_elec <-
+  summarize(
+    pge_group_elec,
+    TOTALKBTU = sum(TOTALBTU, na.rm = T),
+    TOTALCUSTOMERS =sum(TOTALCUSTOMERS,na.rm = T),
+    DATE = 
+      as.Date(paste0(YEAR, "-", MONTH,"-", "01"))
+  ) %>% 
+  
+  pge_summarize_gas <-
+  summarize(
+    pge_group_gas,
+    TOTALKBTU = sum(TOTALBTU, na.rm = T),
+    TOTALCUSTOMERS =sum(TOTALCUSTOMERS,na.rm = T),
+    DATE = 
+      as.Date(paste0(YEAR, "-", MONTH,"-", "01"))
+  ) %>% 
+  
+  
+''' 
+#Already mutated earlier
+pge_mutate <-
+  mutate(
+    DATE = 
+      paste(
+        ___,
+        ___, 
+        "01",
+        sep="-"
+      ) %>% as.Date()
+  )
+
+pge_final_commercial <-
+  pge_final %>% 
+  filter(
+    CUSTOMERCLASS %in% 
+      c(
+        "Gas- Commercial",
+        "Elec- Commercial"
+      )
+  ) %>% 
+  select(
+    -c(COMBINED, AVERAGEKWH)
+  ) %>% 
+  group_by(MONTH, CUSTOMERCLASS) %>% 
+  summarize(
+    TOTALBTU = 
+      sum(
+        TOTALBTU, 
+        na.rm = T
+      ),
+    TOTALCUSTOMERS =
+      sum(
+        TOTALCUSTOMERS,
+        na.rm = T
+      )
+  ) %>% 
+  mutate(
+    AVERAGEBTU =
+      TOTALBTU/TOTALCUSTOMERS
+  )
+'''
+#Combining (stacking) the electric and gas data
+
+pge_final <- rbind(pge_summarize_elec, pge_summarize_gas)
+
+pge_final_commercial <-
+  filter(
+    pge_final,
+    CUSTOMERCLASS %in% 
+      c(
+        "Gas- Commercial",
+        "Elec- Commercial"
+  )
+  )%>% 
+  
+pge_final_commercial
+
+
+  pge_final_residential<-
+  filter(
+    pge_final,
+    CUSTOMERCLASS %in% 
+      c(
+        "Gas- Residential",
+        "Elec- Residential"
+  )
+  )%>% 
+pge_final_residential
+
+```
+
+Next, write a `ggplot()` pipeline for the residential time series. 
+
+```{r}
+
+library(data.table)
+library(scales)
+library(plotly)
+library(ggplot)
+
+pge_chart_residential <-
+pge_final_residential %>% 
+  ggplot() +
+    geom_bar(
+      aes(
+      x = DATE %>% factor(),
+      y = TOTALBTU,
+      fill = CUSTOMERCLASS,
+      
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  
+  labs(
+    x = "Date",
+    y = "kBTU",
+    title = "PG&E Territory Monthly Residential Electrcity and Gas Usage",
+    fill = "Energy Type"
+  ) 
+
+pge_chart_residential
+
+
+pge_chart_commercial <-
+pge_final_commercial %>% 
+  ggplot() +
+    geom_bar(
+      aes(
+      x = DATE %>% factor(),
+      y = TOTALBTU,
+      fill = CUSTOMERCLASS,
+      
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  
+  labs(
+    x = "Date",
+    y = "kBTU",
+    title = "PG&E Territory Monthly Commercial Electrcity and Gas Usage",
+    fill = "Energy Type"
+  ) 
+
+pge_chart_commercial
+
+```
+
+You should now write some similar code to visualize commercial energy.
+
+Include commentary throughout this document, replacing my own commentary.title: "Ruiz_218X_HW1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
